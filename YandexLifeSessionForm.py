@@ -20,9 +20,9 @@ options.add_experimental_option('useAutomationExtension', False)
 
 # Data presensi
 data = {
-    "email": "christopher083ade@gmail.com",
-    "nama_lengkap": "CHRISTOPHER ADE WIYANTO",
-    "nomor_pendaftaran": "19510458840-165",
+    "email": "[email anda]",
+    "nama_lengkap": "[nama anda]",
+    "nomor_pendaftaran": "[nomor pendaftaran]",
     "reviewer": "Mas Fuad",
     "hal_menarik": random.choice([
         "Materi mudah dipahami dan banyak insight baru.",
