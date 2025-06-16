@@ -5,6 +5,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
 from webdriver_manager.chrome import ChromeDriverManager
 import time
 import random
@@ -20,9 +21,11 @@ options.add_experimental_option('useAutomationExtension', False)
 
 # Data presensi
 data = {
-    "email": "[email anda]",
-    "nama_lengkap": "[nama anda]",
-    "nomor_pendaftaran": "[nomor pendaftaran]",
+    "email": "christopher083ade@gmail.com",
+    "nama_lengkap": "CHRISTOPHER ADE WIYANTO",
+    "no_telepon" : "081548912348",
+    "username_telegram" : "@haw121862",
+    "nomor_pendaftaran": "19510458840-165",
     "reviewer": "Mas Fuad",
     "hal_menarik": random.choice([
         "Materi mudah dipahami dan banyak insight baru.",
@@ -104,183 +107,247 @@ try:
             print(f"❌ Gagal mengisi textarea {field_index}: {e}")
         return False
 
-    # Helper function untuk memilih dropdown - IMPROVED VERSION
-    def pilih_dropdown(option_text):
-        """Memilih opsi dari dropdown Google Forms dengan trigger events yang tepat"""
+    # Helper function untuk memilih dropdown - COMPLETELY REWRITTEN
+    def pilih_dropdown_google_forms(option_text):
+        """Memilih opsi dari dropdown Google Forms dengan metode yang lebih reliable"""
         try:
             print(f"🔍 Mencari dropdown untuk memilih: {option_text}")
             
-            # Tunggu sampai dropdown tersedia
+            # Strategi 1: Cari dropdown trigger dan klik untuk membuka
+            dropdown_triggers = [
+                '//div[@role="listbox"]',
+                '//div[contains(@class, "quantumWizMenuPaperselectEl")]',
+                '//div[contains(@jsaction, "click")][@role="listbox"]',
+                '//div[@data-initial-value]'
+            ]
+            
+            dropdown_opened = False
+            for trigger_xpath in dropdown_triggers:
+                try:
+                    trigger = driver.find_element(By.XPATH, trigger_xpath)
+                    driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", trigger)
+                    time.sleep(1)
+                    
+                    # Klik untuk membuka dropdown
+                    trigger.click()
+                    time.sleep(2)
+                    dropdown_opened = True
+                    print("✅ Dropdown berhasil dibuka")
+                    break
+                except:
+                    continue
+            
+            if not dropdown_opened:
+                print("❌ Tidak bisa membuka dropdown")
+                return False
+            
+            # Strategi 2: Tunggu dan cari opsi yang muncul
             wait = WebDriverWait(driver, 10)
             
-            # Strategi 1: Cari opsi yang sudah ada dan visible
-            try:
-                # Cari opsi dengan data-value yang sesuai
-                option_xpath = f'//div[@role="option" and @data-value="{option_text}"]'
-                option_element = wait.until(EC.element_to_be_clickable((By.XPATH, option_xpath)))
-                
-                # Scroll ke element
-                driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", option_element)
-                time.sleep(1)
-                
-                # Trigger mouse events untuk memastikan Google Forms mendeteksi interaksi
-                driver.execute_script("""
-                    var element = arguments[0];
-                    var mouseOverEvent = new MouseEvent('mouseover', {bubbles: true, cancelable: true});
-                    var mouseDownEvent = new MouseEvent('mousedown', {bubbles: true, cancelable: true});
-                    var clickEvent = new MouseEvent('click', {bubbles: true, cancelable: true});
-                    var mouseUpEvent = new MouseEvent('mouseup', {bubbles: true, cancelable: true});
+            # Coba berbagai selector untuk opsi
+            option_selectors = [
+                f'//div[@role="option" and @data-value="{option_text}"]',
+                f'//div[@role="option"]//span[contains(text(), "{option_text}")]/..',
+                f'//div[@role="option" and contains(., "{option_text}")]',
+                f'//div[contains(@class, "quantumWizMenuPaperselectOption") and contains(., "{option_text}")]'
+            ]
+            
+            option_found = False
+            for selector in option_selectors:
+                try:
+                    option_element = wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
                     
-                    element.dispatchEvent(mouseOverEvent);
-                    element.dispatchEvent(mouseDownEvent);
-                    element.dispatchEvent(clickEvent);
-                    element.dispatchEvent(mouseUpEvent);
-                """, option_element)
-                
-                # Tunggu sebentar untuk memastikan perubahan ter-apply
-                time.sleep(2)
-                
-                # Verifikasi apakah opsi sudah terpilih
-                if option_element.get_attribute('aria-selected') == 'true':
-                    print(f"✅ Opsi '{option_text}' berhasil dipilih dan terverifikasi")
-                    return True
-                else:
-                    print("⚠️ Opsi diklik tapi belum ter-select, mencoba metode alternatif...")
-                
-            except Exception as e:
-                print(f"Strategi 1 gagal: {e}")
-            
-            # Strategi 2: Cari listbox dan klik opsi dengan cara berbeda
-            try:
-                # Cari listbox container
-                listbox = driver.find_element(By.XPATH, '//div[@role="listbox"]')
-                driver.execute_script("arguments[0].scrollIntoView(true);", listbox)
-                time.sleep(1)
-                
-                # Cari semua opsi dalam listbox
-                options = listbox.find_elements(By.XPATH, './/div[@role="option"]')
-                
-                for option in options:
-                    try:
-                        data_value = option.get_attribute('data-value')
-                        if data_value == option_text:
-                            print(f"🎯 Ditemukan opsi dengan data-value: {data_value}")
-                            
-                            # Gunakan ActionChains untuk klik yang lebih natural
-                            from selenium.webdriver.common.action_chains import ActionChains
-                            actions = ActionChains(driver)
-                            actions.move_to_element(option).click().perform()
-                            time.sleep(2)
-                            
-                            # Verifikasi selection
-                            if option.get_attribute('aria-selected') == 'true':
-                                print(f"✅ Opsi '{option_text}' berhasil dipilih dengan ActionChains")
-                                return True
-                                
-                    except Exception as e:
-                        continue
-                        
-            except Exception as e:
-                print(f"Strategi 2 gagal: {e}")
-            
-            # Strategi 3: Manual JavaScript selection
-            try:
-                js_script = f"""
-                var options = document.querySelectorAll('div[role="option"]');
-                for (var i = 0; i < options.length; i++) {{
-                    if (options[i].getAttribute('data-value') === '{option_text}') {{
-                        // Set aria-selected
-                        options[i].setAttribute('aria-selected', 'true');
-                        options[i].setAttribute('tabindex', '0');
-                        
-                        // Remove selection from other options
-                        var allOptions = document.querySelectorAll('div[role="option"]');
-                        for (var j = 0; j < allOptions.length; j++) {{
-                            if (allOptions[j] !== options[i]) {{
-                                allOptions[j].setAttribute('aria-selected', 'false');
-                                allOptions[j].setAttribute('tabindex', '-1');
-                                allOptions[j].classList.remove('KKjvXb');
-                            }}
-                        }}
-                        
-                        // Add selected class
-                        options[i].classList.add('KKjvXb');
-                        
-                        // Trigger change event
-                        var event = new Event('change', {{ bubbles: true }});
-                        options[i].dispatchEvent(event);
-                        
-                        return true;
-                    }}
-                }}
-                return false;
-                """
-                
-                result = driver.execute_script(js_script)
-                if result:
-                    print(f"✅ Opsi '{option_text}' berhasil dipilih dengan JavaScript manual")
+                    # Scroll ke opsi
+                    driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", option_element)
+                    time.sleep(1)
+                    
+                    # Klik opsi dengan JavaScript untuk memastikan event ter-trigger
+                    driver.execute_script("arguments[0].click();", option_element)
                     time.sleep(2)
-                    return True
                     
-            except Exception as e:
-                print(f"Strategi 3 gagal: {e}")
+                    print(f"✅ Opsi '{option_text}' berhasil diklik")
+                    option_found = True
+                    break
+                    
+                except Exception as e:
+                    print(f"Selector gagal: {selector} - {e}")
+                    continue
             
-            # Debug: Tampilkan semua opsi yang tersedia
-            print("🔍 Debug - Semua opsi yang tersedia:")
-            try:
-                all_options = driver.find_elements(By.XPATH, '//div[@role="option"]')
-                for i, opt in enumerate(all_options):
-                    data_value = opt.get_attribute('data-value')
-                    aria_selected = opt.get_attribute('aria-selected')
-                    span_text = ""
-                    try:
-                        span = opt.find_element(By.XPATH, './/span[@class="vRMGwf oJeWuf"]')
-                        span_text = span.text
-                    except:
-                        pass
-                    print(f"Opsi {i+1}: data-value='{data_value}', text='{span_text}', selected='{aria_selected}'")
-            except Exception as e:
-                print(f"Error debug: {e}")
+            if not option_found:
+                # Strategi terakhir: Cari semua opsi dan bandingkan text
+                try:
+                    all_options = driver.find_elements(By.XPATH, '//div[@role="option"]')
+                    print(f"🔍 Ditemukan {len(all_options)} opsi, mencari yang cocok...")
+                    
+                    for i, option in enumerate(all_options):
+                        try:
+                            option_text_content = option.get_attribute('textContent') or ""
+                            data_value = option.get_attribute('data-value') or ""
+                            
+                            print(f"Opsi {i+1}: text='{option_text_content.strip()}', data-value='{data_value}'")
+                            
+                            if (option_text in option_text_content or 
+                                option_text == data_value or
+                                option_text_content.strip() == option_text):
+                                
+                                driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", option)
+                                time.sleep(1)
+                                driver.execute_script("arguments[0].click();", option)
+                                time.sleep(2)
+                                
+                                print(f"✅ Opsi '{option_text}' berhasil dipilih dari pencarian manual")
+                                option_found = True
+                                break
+                                
+                        except Exception as e:
+                            continue
+                            
+                except Exception as e:
+                    print(f"Error dalam pencarian manual: {e}")
             
-            print(f"❌ Semua strategi gagal untuk memilih '{option_text}'")
+            # Verifikasi apakah selection berhasil
+            if option_found:
+                try:
+                    # Cek apakah ada perubahan di dropdown (misal ada teks yang berubah)
+                    time.sleep(2)
+                    
+                    # Cari element yang menunjukkan nilai terpilih
+                    selected_indicators = [
+                        '//div[@role="listbox"]//span[contains(@class, "quantumWizMenuPaperselectContent")]',
+                        '//div[@data-initial-value]',
+                        '//div[contains(@class, "quantumWizMenuPaperselectEl")]//span'
+                    ]
+                    
+                    for indicator_xpath in selected_indicators:
+                        try:
+                            indicator = driver.find_element(By.XPATH, indicator_xpath)
+                            current_value = indicator.get_attribute('textContent') or ""
+                            if option_text in current_value:
+                                print(f"✅ Verifikasi berhasil: '{current_value.strip()}' mengandung '{option_text}'")
+                                return True
+                        except:
+                            continue
+                    
+                    print("⚠️ Opsi diklik tapi verifikasi tidak berhasil")
+                    return True  # Anggap berhasil karena sudah diklik
+                    
+                except Exception as e:
+                    print(f"Error verifikasi: {e}")
+                    return True  # Anggap berhasil
+            
             return False
             
         except Exception as e:
             print(f"❌ Error umum dalam pilih_dropdown: {e}")
             return False
 
-    # Isi form secara berurutan sesuai layout yang benar
-    print("📝 Mulai mengisi form...")
+    # Fungsi alternatif menggunakan keyboard navigation
+    def pilih_dropdown_keyboard(option_text):
+        """Alternatif menggunakan keyboard untuk memilih dropdown"""
+        try:
+            print(f"⌨️ Mencoba pilih dropdown dengan keyboard: {option_text}")
+            
+            # Cari dropdown element
+            dropdown = driver.find_element(By.XPATH, '//div[@role="listbox"]')
+            driver.execute_script("arguments[0].scrollIntoView(true);", dropdown)
+            time.sleep(1)
+            
+            # Focus ke dropdown
+            dropdown.click()
+            time.sleep(1)
+            
+            # Gunakan keyboard navigation
+            actions = ActionChains(driver)
+            
+            # Tekan Arrow Down beberapa kali untuk navigasi
+            for i in range(10):  # Maksimal 10 kali navigasi
+                actions.send_keys(Keys.ARROW_DOWN).perform()
+                time.sleep(0.5)
+                
+                # Cek element yang sedang di-highlight
+                try:
+                    highlighted = driver.find_element(By.XPATH, '//div[@role="option" and contains(@class, "Ct2jlb")]')
+                    current_text = highlighted.get_attribute('textContent') or ""
+                    
+                    if option_text in current_text:
+                        actions.send_keys(Keys.ENTER).perform()
+                        time.sleep(2)
+                        print(f"✅ Berhasil pilih '{option_text}' dengan keyboard")
+                        return True
+                        
+                except:
+                    continue
+            
+            return False
+            
+        except Exception as e:
+            print(f"❌ Error keyboard navigation: {e}")
+            return False
+
+    # Isi form secara berurutan sesuai urutan baru yang diminta
+    print("📝 Mulai mengisi form dengan urutan baru...")
     
-    # 1. Nama Reviewer (dropdown - paling atas)
+    # 1. Nama Reviewer Pada Live Session (dropdown - field pertama)
     print("🔽 Memilih Nama Reviewer dari dropdown...")
-    pilih_dropdown(data["reviewer"])  
-    time.sleep(2)
     
-    # 2. Nama Lengkap (input pertama dengan placeholder "Jawaban Anda")
+    # Coba metode utama dulu
+    if not pilih_dropdown_google_forms(data["reviewer"]):
+        print("🔄 Mencoba metode keyboard...")
+        if not pilih_dropdown_keyboard(data["reviewer"]):
+            print("❌ Semua metode dropdown gagal")
+        
+    time.sleep(3)
+    
+    # 2. Nama (input pertama dengan placeholder "Jawaban Anda")
     print("👤 Mengisi Nama Lengkap...")
     isi_input_text(data["nama_lengkap"], 1)
     time.sleep(1)
     
-    # 3. Email (input kedua dengan placeholder "Jawaban Anda")
+    # 3. Nomor Telepon (input kedua)
+    print("📱 Mengisi Nomor Telepon...")
+    isi_input_text(data["no_telepon"], 2)
+    time.sleep(1)
+    
+    # 4. Username Telegram (input ketiga)
+    print("📱 Mengisi Username Telegram...")
+    isi_input_text(data["username_telegram"], 3)
+    time.sleep(1)
+    
+    # 5. Email (input keempat)
     print("📧 Mengisi Email...")
-    isi_input_text(data["email"], 2)
+    isi_input_text(data["email"], 4)
     time.sleep(1)
     
-    # 4. DTS ID / Nomor Pendaftaran (input ketiga)
+    # 6. DTS ID (input kelima)
     print("🔢 Mengisi DTS ID...")
-    isi_input_text(data["nomor_pendaftaran"], 3)
+    isi_input_text(data["nomor_pendaftaran"], 5)
     time.sleep(1)
     
-    # 5. Hal Menarik (textarea pertama)
+    # 7. Apa hal yang paling menarik pada live session kali ini? (textarea pertama)
     print("📝 Mengisi Hal Menarik...")
     isi_textarea(data["hal_menarik"], 1)
     time.sleep(1)
     
-    # 6. Feedback (textarea kedua)
+    # 8. Feedback untuk Reviewer / Live Session pada hari ini (textarea kedua)
     print("💬 Mengisi Feedback...")
     isi_textarea(data["feedback"], 2)
     time.sleep(1)
+
+    # Debug: Cek status form sebelum submit
+    print("🔍 Mengecek status form sebelum submit...")
+    try:
+        # Cek apakah ada field yang masih kosong atau invalid
+        required_fields = driver.find_elements(By.XPATH, '//div[contains(@class, "quantumWizTextinputPaperInputInputWrapper") and contains(@class, "quantumWizTextinputPaperInputError")]')
+        if required_fields:
+            print(f"⚠️ Ditemukan {len(required_fields)} field dengan error")
+        
+        # Cek dropdown value
+        dropdown_value = driver.find_element(By.XPATH, '//div[@role="listbox"]')
+        current_dropdown_text = dropdown_value.get_attribute('textContent') or ""
+        print(f"📋 Nilai dropdown saat ini: '{current_dropdown_text}'")
+        
+    except Exception as e:
+        print(f"Error checking form status: {e}")
 
     # Cari dan klik tombol submit dengan berbagai strategi
     submit_selectors = [
@@ -301,6 +368,13 @@ try:
                 submit_btn = submit_elements[0]
                 driver.execute_script("arguments[0].scrollIntoView(true);", submit_btn)
                 time.sleep(1)
+                
+                # Cek apakah tombol disabled
+                is_disabled = submit_btn.get_attribute('aria-disabled')
+                if is_disabled == 'true':
+                    print("⚠️ Tombol submit masih disabled - ada field yang belum terisi dengan benar")
+                else:
+                    print("✅ Tombol submit siap diklik")
                 
                 submit_btn.click()  # Uncomment untuk benar-benar submit
                 print("✅ Tombol submit ditemukan! (Tidak diklik untuk testing)")
